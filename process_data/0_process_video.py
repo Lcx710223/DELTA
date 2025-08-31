@@ -13,6 +13,9 @@ import torch
 import cv2
 import numpy as np
 from PIL import Image
+### 20250831LCX添加MODNET模块。放在PROCESS_DATA目录下MODNET子目录中。
+
+
 
 def plot_points(image, kpts, color = 'r'):
     ''' Draw 68 key points
@@ -187,6 +190,7 @@ def generate_image(inputpath, savepath, subject_name=None, crop=False, crop_each
                 if h!=image_size or w!=image_size:
                     dst_image = resize(image, [image_size, image_size])
                     dst_image = (dst_image*255).astype(np.uint8)
+                    
                     imsave(os.path.join(savepath, f'{subject_name}_f{count:06d}.png'), dst_image)
                 else:
                     shutil.copyfile(imagepath, os.path.join(savepath, f'{subject_name}_f{count:06d}.png'))
@@ -236,8 +240,8 @@ def generate_matting_rvm(inputpath, savepath, ckpt_path='assets/rvm/rvm_resnet50
     
 # better for portrait
 def generate_matting_MODNet(inputpath, savepath, ckpt_path='assets/MODNet/modnet_webcam_portrait_matting.ckpt', device='cuda:0'):
-    sys.path.append('./submodules/MODNet')
-    from src.models.modnet import MODNet
+    # sys.path.append('/content/DELTA/process_data/modnet')
+    from modnet.modnet import MODNet
     import torchvision.transforms as transforms
     import torch.nn as nn
     from PIL import Image
@@ -296,7 +300,7 @@ def generate_landmark2d(inputpath, savepath, device='cuda:0', vis=False):
     logger.info(f'generae 2d landmarks')
     os.makedirs(savepath, exist_ok=True)
     import face_alignment
-    detect_model = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
+    detect_model = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device=device, flip_input=False)
     
     imagepath_list = glob(os.path.join(inputpath, '*.png'))
     imagepath_list = sorted(imagepath_list)
