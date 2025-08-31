@@ -1,3 +1,4 @@
+### JULES20250831,修正了CPU/GPU兼容。在命令行参数部分添加了 --device 参数。
 from ipaddress import ip_address
 import os, sys
 import argparse
@@ -195,7 +196,7 @@ def generate_matting_rvm(inputpath, savepath, ckpt_path='assets/rvm/rvm_resnet50
     from model import MattingNetwork
     EXTS = ['jpg', 'jpeg', 'png']
     segmentor = MattingNetwork(variant='resnet50').eval().to(device)
-    segmentor.load_state_dict(torch.load(ckpt_path))
+    segmentor.load_state_dict(torch.load(ckpt_path, map_location=device))
 
     images_folder = inputpath
     output_folder = savepath
@@ -209,7 +210,7 @@ def generate_matting_rvm(inputpath, savepath, ckpt_path='assets/rvm/rvm_resnet50
     rec = [None] * 4                                       # Initial recurrent 
     downsample_ratio = 1.0                                 # Adjust based on your video.   
 
-    # bgr = torch.tensor([1, 1, 1.]).view(3, 1, 1).cuda() 
+    # bgr = torch.tensor([1, 1, 1.]).view(3, 1, 1).to(device) 
     for i in tqdm(range(len(frame_IDs))):
         frame_ID = frame_IDs[i]
         img_path = os.path.join(images_folder, '{}.png'.format(frame_ID))
@@ -243,7 +244,7 @@ def generate_matting_MODNet(inputpath, savepath, ckpt_path='assets/MODNet/modnet
     EXTS = ['jpg', 'jpeg', 'png']
     modnet = MODNet(backbone_pretrained=False).to(device)
     modnet = nn.DataParallel(modnet)
-    modnet.load_state_dict(torch.load(ckpt_path))
+    modnet.load_state_dict(torch.load(ckpt_path, map_location=device))
     modnet.eval()
     torch_transforms = transforms.Compose(
     [
@@ -268,7 +269,7 @@ def generate_matting_MODNet(inputpath, savepath, ckpt_path='assets/MODNet/modnet
     rec = [None] * 4                                       # Initial recurrent 
     downsample_ratio = 1.0                                 # Adjust based on your video.   
 
-    # bgr = torch.tensor([1, 1, 1.]).view(3, 1, 1).cuda() 
+    # bgr = torch.tensor([1, 1, 1.]).view(3, 1, 1).to(device) 
     for i in tqdm(range(len(frame_IDs))):
         frame_ID = frame_IDs[i]
         img_path = os.path.join(images_folder, '{}.png'.format(frame_ID))
@@ -336,7 +337,7 @@ def generate_landmark3d(inputpath, savepath, device='cuda:0', vis=False):
             os.remove(imagepath)
             logger.info(f'3D landmark detection filed with image {imagepath}, delete it')
             
-def generate_iris(inputpath, savepath, device='cuda:0', vis=False):
+def generate_iris(inputpath, savepath, vis=False):
     logger.info(f'generae iris detection')
     os.makedirs(savepath, exist_ok=True)
     from fdlite import (
@@ -417,7 +418,7 @@ def generate_face_parsing(inputpath, savepath, ckpt_path='assets/face_parsing/mo
     n_classes = 19
     net = BiSeNet(n_classes=n_classes)
     net.to(device)
-    net.load_state_dict(torch.load(ckpt_path))
+    net.load_state_dict(torch.load(ckpt_path, map_location=device))
     net.eval()
 
     to_tensor = transforms.Compose([
@@ -468,8 +469,8 @@ def generate_face_normals(inputpath, savepath, ckpt_path='assets/face_normals/mo
             ToTensor()
             ])
     
-    model = ResNetUNet(n_class = 3).cuda()
-    model.load_state_dict(torch.load(ckpt_path))                              
+    model = ResNetUNet(n_class = 3).to(device)
+    model.load_state_dict(torch.load(ckpt_path, map_location=device))                              
     model.eval()
     from torch.autograd import Variable
     import face_alignment
@@ -521,7 +522,7 @@ def generate_face_normals(inputpath, savepath, ckpt_path='assets/face_normals/mo
         # crop_img = Image.open('tmp.jpg')
         # import ipdb; ipdb.set_trace()
         img_tensor = img_transform(crop_img).unsqueeze(0)  
-        img_tensor = Variable(img_tensor.cuda())
+        img_tensor = Variable(img_tensor.to(device))
         
         outs = model(img_tensor)[0]  
         out = np.array(outs[0].data.permute(1,2,0).cpu())  
@@ -533,9 +534,8 @@ def generate_face_normals(inputpath, savepath, ckpt_path='assets/face_normals/mo
 
 class DataProcessor():
     def __init__(self, args):
-        # self.actions = args.actions
         self.savepath = args.savepath
-        # if 'copy' in actions:
+        self.device = args.device
                 
     def check_run(self, subject_name, action):
         outputpath = os.path.join(self.savepath, subject_name, action)
@@ -551,31 +551,39 @@ class DataProcessor():
         # 1. crop image from frames
         if ignore_existing or not os.path.exists(os.path.join(savepath, 'image')):
             generate_image(os.path.join(savepath, 'frame'), os.path.join(savepath, 'image'), subject_name=subject_name,
-                           crop=crop, crop_each=crop_each, image_size=512, scale_bbox=2.5, device='cuda:0')
+                           crop=crop, crop_each=crop_each, image_size=512, scale_bbox=2.5, device=self.device)
         
         # 2. video matting
         if ignore_existing or not os.path.exists(os.path.join(savepath, 'matting')):
-            generate_matting_MODNet(os.path.join(savepath, 'image'), os.path.join(savepath, 'matting'))
-            # generate_matting_rvm(os.path.join(savepath, 'image'), os.path.join(savepath, 'matting'))
+            generate_matting_MODNet(os.path.join(savepath, 'image'), os.path.join(savepath, 'matting'), device=self.device)
+            # generate_matting_rvm(os.path.join(savepath, 'image'), os.path.join(savepath, 'matting'), device=self.device)
             
         # 3. landmarks
         if ignore_existing or not os.path.exists(os.path.join(savepath, 'landmark2d')):
-            generate_landmark2d(os.path.join(savepath, 'image'), os.path.join(savepath, 'landmark2d'), vis=vis)
+            generate_landmark2d(os.path.join(savepath, 'image'), os.path.join(savepath, 'landmark2d'), vis=vis, device=self.device)
         # if ignore_existing and not os.path.exists(os.path.join(savepath, 'landmark3d')):
-        #     generate_landmark3d(os.path.join(savepath, 'image'), os.path.join(savepath, 'landmark3d'), vis=vis)
+        #     generate_landmark3d(os.path.join(savepath, 'image'), os.path.join(savepath, 'landmark3d'), vis=vis, device=self.device)
         if ignore_existing or not os.path.exists(os.path.join(savepath, 'iris')):
             generate_iris(os.path.join(savepath, 'image'), os.path.join(savepath, 'iris'), vis=vis)
         
         # 4. face parsing
         if ignore_existing or not os.path.exists(os.path.join(savepath, 'face_parsing')):
-            generate_face_parsing(os.path.join(savepath, 'matting'), os.path.join(savepath, 'face_parsing'), vis=vis)
+            generate_face_parsing(os.path.join(savepath, 'matting'), os.path.join(savepath, 'face_parsing'), vis=vis, device=self.device)
         
         # 5. face normal
         # if ignore_existing and not os.path.exists(os.path.join(savepath, 'face_normals')):
-        #     generate_face_normals(os.path.join(savepath, 'image'), os.path.join(savepath, 'face_normals'))
+        #     generate_face_normals(os.path.join(savepath, 'image'), os.path.join(savepath, 'face_normals'), device=self.device)
         
 def main(args):    
     logger.add(args.logpath)
+    # 检查是否有可用的GPU，并根据情况设置运行设备
+    # 如果CUDA可用且用户未指定其他设备，则使用cuda:0
+    # 否则，自动切换到CPU
+    if torch.cuda.is_available() and args.device == 'cuda:0':
+        logger.info('using device: cuda:0')
+    else:
+        logger.info('using device: cpu')
+        args.device = 'cpu'
     if args.videopath is not None:
         subject_list = [args.videopath]
     else:
@@ -603,6 +611,10 @@ if __name__ == "__main__":
                         help='path to the subject data, can be image folder or video')
     parser.add_argument('--savepath', default='/is/cluster/yfeng/Data/Projects-data/DELTA/datasets/face', type=str,
                         help='path to save processed data')
+    # 添加设备选项，允许用户通过命令行指定使用'cpu'或'cuda:0'
+    # 默认为'cuda:0'，如果GPU不可用，代码会自动切换到'cpu'
+    parser.add_argument('--device', default='cuda:0', type=str,
+                        help='device to run the model on. e.g. cpu or cuda:0')
     parser.add_argument('--subject_idx', default=None, type=int,
                         help='specify subject idx, if None (default), then use all the subject data in the list') 
     parser.add_argument("--image_size", default=512, type=int,
