@@ -163,6 +163,7 @@ def generate_image(inputpath, savepath, subject_name=None, crop=False, crop_each
                     DST_PTS = np.array([[0,0], [0,image_size - 1], [image_size - 1, 0]])
                     tform = estimate_transform('similarity', src_pts, DST_PTS)
                 dst_image = warp(image, tform.inverse, output_shape=(image_size, image_size))
+                dst_image = (dst_image * 255).astype(np.uint8)
                 imsave(os.path.join(savepath, f'{subject_name}_f{count:06d}.png'), dst_image)
             else:
                 
