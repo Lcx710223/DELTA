@@ -6,7 +6,7 @@ torchvision
 # -- image
 scikit-image
 opencv-python
-chumpy
+# chumpy
 
 # -- other
 loguru
