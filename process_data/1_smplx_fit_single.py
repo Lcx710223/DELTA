@@ -1,5 +1,7 @@
 ''' Convert data from IMavatar to SCARF data format
 '''
+### JULES250901,检测GPU/CPU兼容性。增加一个参数：--device。
+
 from ipaddress import ip_address
 import os
 from pathlib import Path
@@ -57,6 +59,7 @@ class PoseModel(nn.Module):
 
     def __init__(self,
                  dataset,
+                 device='cuda:0', # 新增: 接收计算设备
                  optimize_cam=False,
                  use_perspective=False,
                  use_appearance=False,
@@ -66,7 +69,7 @@ class PoseModel(nn.Module):
                  n_lights=3,
                  deformation_dim=0):
         super(PoseModel, self).__init__()
-        self.device = 'cuda:0'
+        self.device = device
         self.subject_id = dataset.subject_id
 
         ## initialize
@@ -158,6 +161,7 @@ class SMPLX_optimizer(torch.nn.Module):
     def _setup_model(self):
         ## pose model
         self.posemodel = PoseModel(dataset=self.dataset,
+                                   device=self.device, # 修改: 将选择的设备传递给PoseModel
                                    optimize_cam=True,
                                    use_perspective=False,
                                    use_appearance=False,
@@ -556,7 +560,7 @@ if __name__ == '__main__':
     parser.add_argument('--image_size', type=int, default=512)
     parser.add_argument('--iters', type=str, default='2000,500,2000')
     parser.add_argument('--vis_step', type=int, default=100)
-    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--device', type=str, default=None, help='要使用的设备 (例如, "cpu" or "cuda")')
     parser.add_argument('--light_type', type=str, default='SH')
     parser.add_argument('--seed', type=int, default=9988)
     parser.add_argument("--use_normal", default=False, action="store_true")
@@ -564,6 +568,20 @@ if __name__ == '__main__':
     # only optimize training frames only if set train_only
     parser.add_argument("--train_only", default=False, action="store_true")
     args = parser.parse_args()
+
+    # --- 设备检测与选择 ---
+    if args.device is None:
+        # 如果用户未指定设备，则自动检测
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"未指定设备，自动选择: {device}")
+    else:
+        device = args.device
+    
+    if device == 'cuda' and not torch.cuda.is_available():
+        # 如果用户指定了cuda但不可用，则切换到cpu
+        print("警告: CUDA 设备不可用, 强制切换到 CPU.")
+        device = 'cpu'
+    args.device = device # 更新参数中的设备
 
     # load dataset
     if args.data_cfg is None:
