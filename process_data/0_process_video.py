@@ -126,7 +126,7 @@ def generate_image(inputpath, savepath, subject_name=None, crop=False, crop_each
             imagepath = imagepath_list[0]
             logger.info(f'detect first image {imagepath}')
             import face_alignment
-            detect_model = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, device=device, flip_input=False)
+            detect_model = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device=device, flip_input=False)
             image = imread(imagepath)
             out = detect_model.get_landmarks(image)
             kpt = out[0].squeeze()
