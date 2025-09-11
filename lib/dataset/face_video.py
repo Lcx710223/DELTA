@@ -1,3 +1,5 @@
+###JULES20250911修改维度不匹配问题。
+
 from skimage.transform import resize
 from skimage.io import imread
 import pickle
@@ -118,14 +120,23 @@ class Dataset(torch.utils.data.Dataset):
                 else:
                     param_dict[key] = torch.from_numpy(codedict[key])
             
-            data['cam'] = param_dict['cam'].squeeze()
-            data['full_pose'] = param_dict['full_pose']
-            data['beta'] = param_dict['shape'].squeeze()
-            data['exp'] = param_dict['exp']
+            data['cam'] = param_dict['cam'].reshape(-1)
+            data['full_pose'] = param_dict['full_pose'].squeeze()
+            data['beta'] = param_dict['shape'].reshape(-1)
+            data['exp'] = param_dict['exp'].reshape(-1)
             if self.load_light and 'light' in param_dict:
-                data['light'] = param_dict['light']
+                data['light'] = param_dict['light'].reshape(-1)
             if 'tex' in param_dict:
-                data['tex'] = param_dict['tex'].squeeze() 
+                data['tex'] = param_dict['tex'].reshape(-1)
+        else:
+            # Create placeholder data if pkl file is missing
+            data['cam'] = torch.zeros(3).float()
+            data['full_pose'] = torch.eye(3).float().unsqueeze(0).repeat(55, 1, 1)
+            data['beta'] = torch.zeros(300).float()
+            data['exp'] = torch.zeros(1, 100).float()
+            data['tex'] = torch.zeros(100).float()
+            if self.load_light:
+                data['light'] = torch.zeros(1, 9, 3).float()
 
         # --- masks from hair matting and segmentation
         ''' for face parsing from https://github.com/zllrunning/face-parsing.PyTorch/issues/12
