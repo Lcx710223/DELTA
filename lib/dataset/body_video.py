@@ -1,3 +1,5 @@
+###JULES20250911修改维度不匹配的问题。
+
 from skimage.transform import resize
 from skimage.io import imread
 import pickle
@@ -128,10 +130,10 @@ class Dataset(torch.utils.data.Dataset):
             jaw_pose = torch.eye(3, dtype=torch.float32).unsqueeze(0) #param_dict['jaw_pose']
             eye_pose = torch.eye(3, dtype=torch.float32).unsqueeze(0).repeat(2,1,1)
             # hand_pose = torch.eye(3, dtype=torch.float32).unsqueeze(0).repeat(15,1,1)
-            full_pose = torch.cat([param_dict['global_pose'], param_dict['body_pose'],
+            full_pose = torch.cat([param_dict['global_pose'].squeeze(), param_dict['body_pose'].squeeze(),
                                 jaw_pose, eye_pose, 
                                 # hand_pose, hand_pose], dim=0)        
-                                param_dict['left_hand_pose'], param_dict['right_hand_pose']], dim=0)                
+                                param_dict['left_hand_pose'].squeeze(), param_dict['right_hand_pose'].squeeze()], dim=0)                
             cam = param_dict['body_cam'].squeeze()
             beta = torch.cat([beta, torch.zeros(300-beta.shape[0])], dim=0)
             # beta[:] = 0.
@@ -154,7 +156,7 @@ class Dataset(torch.utils.data.Dataset):
             
         ## set hand pose to zero
         # full_pose[-30:] = torch.eye(3, dtype=torch.float32).unsqueeze(0).repeat(30,1,1)
-        exp = torch.zeros_like(param_dict['exp'].squeeze()[:10])
+        exp = torch.zeros_like(param_dict['exp'].squeeze().reshape(-1)[:10])
         data['full_pose'] = full_pose
         data['cam'] = cam
         data['exp'] = torch.cat([exp, torch.zeros(100-exp.shape[0])], dim=0)
