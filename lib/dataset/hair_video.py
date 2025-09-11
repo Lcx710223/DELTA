@@ -1,3 +1,5 @@
+###JULES20250911修改维度不匹配的问题。
+
 from skimage.transform import resize
 from skimage.io import imread
 import pickle
@@ -120,14 +122,14 @@ class Dataset(torch.utils.data.Dataset):
                     param_dict[key] = codedict[key]
                 else:
                     param_dict[key] = torch.from_numpy(codedict[key])
-            data['cam'] = param_dict['cam'].squeeze()
-            data['full_pose'] = param_dict['full_pose']
-            data['beta'] = param_dict['beta'].squeeze() #if 'shape' in param_dict else torch.zeros([300], dtype=torch.float)
-            data['exp'] = param_dict['exp']
+            data['cam'] = param_dict['cam'].reshape(-1)
+            data['full_pose'] = param_dict['full_pose'].squeeze()
+            data['beta'] = param_dict['beta'].reshape(-1) #if 'shape' in param_dict else torch.zeros([300], dtype=torch.float)
+            data['exp'] = param_dict['exp'].reshape(-1)
             if self.load_light and 'light' in param_dict:
-                data['light'] = param_dict['light']
+                data['light'] = param_dict['light'].reshape(-1)
             if 'tex' in param_dict:
-                data['tex'] = param_dict['tex'].squeeze() 
+                data['tex'] = param_dict['tex'].reshape(-1)
 
         # --- masks from hair matting and segmentation
         ''' for face parsing from https://github.com/zllrunning/face-parsing.PyTorch/issues/12
